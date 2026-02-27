@@ -117,11 +117,41 @@ export default function App() {
       const wb = XLSX.read(e.target?.result, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
-      const headers = data[0]?.map(String) || [];
-      const rows = data.slice(1).filter((r) => r.some((c) => c !== null && c !== ""));
+
+      // Find the header row: first row with 2+ non-empty text cells
+      let headerIdx = 0;
+      for (let i = 0; i < Math.min(data.length, 10); i++) {
+        const row = data[i];
+        if (!row) continue;
+        const textCells = row.filter(
+          (c) => c !== null && c !== undefined && c !== "" && typeof c === "string" && isNaN(Number(c))
+        );
+        if (textCells.length >= 2) {
+          headerIdx = i;
+          break;
+        }
+      }
+
+      const headerRow = data[headerIdx] || [];
+      // Determine max columns from all rows
+      const maxCols = data.reduce((max, row) => Math.max(max, row?.length || 0), 0);
+
+      // Build headers: use actual values if they exist, otherwise fallback to column letters
+      const headers: string[] = [];
+      for (let i = 0; i < maxCols; i++) {
+        const val = headerRow[i];
+        if (val !== null && val !== undefined && String(val).trim() !== "") {
+          headers.push(String(val).trim());
+        } else {
+          headers.push(`Columna ${String.fromCharCode(65 + i)}`);
+        }
+      }
+
+      const rows = data.slice(headerIdx + 1).filter((r) => r && r.some((c) => c !== null && c !== undefined && c !== ""));
       setExcelHeaders(headers);
       setExcelRaw(rows);
 
+      // Auto-detect columns
       const autoMap: Record<string, string> = { fecha: "", importe: "", concepto: "" };
       headers.forEach((h, i) => {
         const hl = h.toLowerCase();
