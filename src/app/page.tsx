@@ -259,6 +259,91 @@ export default function App() {
     setProgress(0);
   };
 
+  // ── EXPORT EXCEL ──
+  const exportToExcel = () => {
+    if (!matchResult) return;
+    const wb = XLSX.utils.book_new();
+
+    // Hoja 1: Resumen
+    const resumenData = [
+      ["INFORME DE CONCILIACIÓN DE GASTOS"],
+      ["Fecha del informe", new Date().toLocaleDateString("es-ES")],
+      [],
+      ["RESUMEN"],
+      ["Total movimientos", total],
+      ["Conciliados (con ticket)", matched],
+      ["Sin ticket", sinTicket],
+      ["Tickets sin movimiento", ticketsSinMov],
+      ["% Conciliación", `${pct}%`],
+      [],
+      ["Análisis IA", matchResult.resumen || "—"],
+    ];
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    wsResumen["!cols"] = [{ wch: 30 }, { wch: 50 }];
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+
+    // Hoja 2: Movimientos conciliados
+    if (matchResult.matches.length > 0) {
+      const matchRows = matchResult.matches.map((m) => {
+        const mov = movements[m.movimiento_idx];
+        const tick = tickets[m.ticket_idx];
+        return {
+          "Score (%)": m.score,
+          "Fecha movimiento": formatDate(mov?._fecha),
+          "Importe (€)": mov?._importe,
+          "Concepto bancario": mov?._concepto || "—",
+          "Ticket": tick?.name || "—",
+          "Fecha ticket": tick?.data?.fecha || "—",
+          "Comercio": tick?.data?.comercio || "—",
+          "Tipo": tick?.data?.tipo || "—",
+          "Razón match": m.razon,
+        };
+      });
+      const wsMatches = XLSX.utils.json_to_sheet(matchRows);
+      wsMatches["!cols"] = [{ wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 35 }, { wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 35 }];
+      XLSX.utils.book_append_sheet(wb, wsMatches, "Conciliados");
+    }
+
+    // Hoja 3: Sin ticket
+    if (sinTicket > 0) {
+      const sinTicketRows = matchResult.movimientos_sin_ticket
+        .map((idx) => movements[idx])
+        .filter(Boolean)
+        .map((mov) => ({
+          "Fecha": formatDate(mov._fecha),
+          "Importe (€)": mov._importe,
+          "Concepto": mov._concepto || "—",
+          "Estado": "Falta ticket",
+        }));
+      const wsSinTicket = XLSX.utils.json_to_sheet(sinTicketRows);
+      wsSinTicket["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 40 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, wsSinTicket, "Sin ticket");
+    }
+
+    // Hoja 4: Tickets sin movimiento
+    if (ticketsSinMov > 0) {
+      const ticketsSinMovRows = matchResult.tickets_sin_movimiento
+        .map((idx) => tickets[idx])
+        .filter(Boolean)
+        .map((t) => ({
+          "Ticket": t.name,
+          "Importe (€)": t.data?.importe || "—",
+          "Fecha": t.data?.fecha || "—",
+          "Comercio": t.data?.comercio || "—",
+          "Tipo": t.data?.tipo || "—",
+          "Estado": "Sin movimiento asociado",
+        }));
+      const wsTicketsSinMov = XLSX.utils.json_to_sheet(ticketsSinMovRows);
+      wsTicketsSinMov["!cols"] = [{ wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 25 }];
+      XLSX.utils.book_append_sheet(wb, wsTicketsSinMov, "Tickets sin movimiento");
+    }
+
+    // Descargar
+    const fecha = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `conciliacion_${fecha}.xlsx`);
+    showToast("✓ Excel descargado", "success");
+  };
+
   // ── STATS ──
   const matched = matchResult?.matches?.length || 0;
   const total = movements.length;
@@ -598,6 +683,9 @@ export default function App() {
               <button className="btn btn-secondary" onClick={() => setStep(1)}>← Añadir más tickets</button>
               <button className="btn btn-secondary" onClick={() => { setStep(0); setMovements([]); setTickets([]); setMatchResult(null); setExcelRaw([]); }}>
                 🔄 Nueva conciliación
+              </button>
+              <button className="btn btn-primary" onClick={exportToExcel}>
+                📥 Descargar Excel resumen
               </button>
             </div>
           </div>
