@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      model: "claude-sonnet-4-6-20250227",
+      max_tokens: 2000,
       messages: [
         {
           role: "user",
@@ -28,26 +28,34 @@ export async function POST(req: NextRequest) {
             },
             {
               type: "text",
-              text: `Eres un experto en análisis de tickets y facturas. Analiza este ticket/factura y extrae la información exacta.
+              text: `Analiza esta imagen de un ticket, factura o recibo con máxima precisión. Examina cada detalle visible en la imagen.
 
-Responde SOLO con JSON válido, sin markdown ni explicaciones:
+INSTRUCCIONES:
+1. Lee TODO el texto visible en la imagen, incluyendo texto pequeño, borroso o en los márgenes
+2. Busca el TOTAL FINAL (no subtotales ni parciales). Suele aparecer al final, en negrita o con mayor tamaño. Busca palabras como "TOTAL", "IMPORTE", "A PAGAR", "TOTAL EUR"
+3. La fecha puede estar en cualquier formato (DD/MM/YYYY, DD-MM-YYYY, etc.). Los tickets españoles usan DD/MM/YYYY
+4. El nombre del comercio suele estar arriba del ticket, a veces con CIF/NIF debajo
+5. Si la imagen está rotada o invertida, intenta leerla igualmente
+
+Responde SOLO con JSON válido, sin markdown, sin explicaciones, sin texto adicional:
 {
   "importe": 12.50,
   "fecha": "2024-01-15",
-  "comercio": "Nombre del establecimiento",
-  "concepto": "Descripción breve del gasto",
-  "tipo": "restaurante|transporte|hotel|gasolina|supermercado|otro",
+  "comercio": "Nombre exacto del establecimiento",
+  "concepto": "Descripción de lo consumido/comprado",
+  "tipo": "restaurante|transporte|hotel|gasolina|supermercado|parking|farmacia|otro",
   "confianza": 85
 }
 
-- importe: número decimal con el total (sin símbolo €)
-- fecha: formato YYYY-MM-DD, null si no visible
-- comercio: nombre del establecimiento, null si no visible
-- concepto: qué se compró/consumió
-- tipo: categoría del gasto
-- confianza: 0-100 según legibilidad del ticket
+Reglas para cada campo:
+- importe: número decimal del TOTAL FINAL (sin símbolo €). Si hay varios totales, usa el más grande
+- fecha: formato YYYY-MM-DD. Si el ticket pone 15/03/2024, devuelve "2024-03-15". null si no visible
+- comercio: nombre tal cual aparece en el ticket. null si no legible
+- concepto: resumen breve (ej: "comida y bebidas", "gasolina 95", "parking 2h")
+- tipo: categoría más apropiada
+- confianza: 0-100. Baja si hay zonas ilegibles o borrosas
 
-Si no es un ticket/factura, devuelve {"error": "No es un ticket válido"}`,
+Si la imagen NO es un ticket/factura/recibo, devuelve: {"error": "No es un ticket válido"}`,
             },
           ],
         },
