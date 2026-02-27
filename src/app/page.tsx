@@ -151,7 +151,7 @@ export default function App() {
       setExcelHeaders(headers);
       setExcelRaw(rows);
 
-      // Auto-detect columns
+      // Auto-detect columns by header name
       const autoMap: Record<string, string> = { fecha: "", importe: "", concepto: "" };
       headers.forEach((h, i) => {
         const hl = h.toLowerCase();
@@ -164,10 +164,14 @@ export default function App() {
           autoMap.importe = String(i);
         if (
           !autoMap.concepto &&
-          (hl.includes("concepto") || hl.includes("descr") || hl.includes("concept") || hl.includes("detalle"))
+          (hl.includes("concepto") || hl.includes("descr") || hl.includes("concept") || hl.includes("detalle") || hl.includes("establecimiento") || hl.includes("comercio"))
         )
           autoMap.concepto = String(i);
       });
+      // Fallback: fixed column positions (I=fecha, P=importe, M=establecimiento)
+      if (!autoMap.fecha && maxCols > 8) autoMap.fecha = "8";
+      if (!autoMap.importe && maxCols > 15) autoMap.importe = "15";
+      if (!autoMap.concepto && maxCols > 12) autoMap.concepto = "12";
       setColMap(autoMap);
       showToast(`✓ ${rows.length} movimientos cargados`, "success");
     };
